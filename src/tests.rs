@@ -316,7 +316,8 @@ fn client_config_channel_uses_per_server_override() {
     seams::set_game(Some(game.clone() as Rc<dyn seams::MinecraftClient>));
 
     {
-        let cfg = client_handler().config_mut();
+        let mut handler = client_handler();
+        let cfg = handler.config_mut();
         cfg.server_channels.insert("1.2.3.4:25565".into(), "serverchan".into());
         assert_eq!(cfg.get_channel(), "serverchan");
         cfg.set_channel("overwritten".into());
@@ -325,7 +326,8 @@ fn client_config_channel_uses_per_server_override() {
 
     // no game context -> plain channel
     seams::set_game(Some(TestGame::minimal() as Rc<dyn seams::MinecraftClient>));
-    let cfg = client_handler().config_mut();
+    let mut handler = client_handler();
+    let cfg = handler.config_mut();
     cfg.channel = "plain".into();
     assert_eq!(cfg.get_channel(), "plain");
     cfg.set_channel("edited".into());
@@ -335,7 +337,8 @@ fn client_config_channel_uses_per_server_override() {
 #[test]
 fn client_config_validate_truncates_overlong_channels() {
     let _g = install();
-    let cfg = client_handler().config_mut();
+    let mut handler = client_handler();
+    let cfg = handler.config_mut();
     cfg.channel = "x".repeat(200);
     cfg.validate();
     assert_eq!(cfg.channel.len(), crate::config::MAX_CHANNEL_LENGTH);
@@ -360,7 +363,7 @@ fn config_handler_round_trips_pretty_json() {
     let _ = std::fs::remove_file(&path);
 
     {
-        let handler = client_handler();
+        let mut handler = client_handler();
         handler.load();
         handler.config_mut().ping_volume = 42;
         handler.save();
@@ -370,7 +373,7 @@ fn config_handler_round_trips_pretty_json() {
     assert!(text.contains("\n  \"pingVolume\""), "expected pretty JSON, got {}", text);
 
     {
-        let handler = client_handler();
+        let mut handler = client_handler();
         handler.load();
         assert_eq!(handler.config().ping_volume, 42);
     }
@@ -801,11 +804,12 @@ fn server_core_channels_route_only_to_same_channel() {
     seams::set_server_env(env.clone());
 
     {
-        let cfg = server_handler().config_mut();
+        let mut handler = server_handler();
+        let cfg = handler.config_mut();
         cfg.default_channel_mode = ChannelMode::Global;
         cfg.rate_limit = 0;
-        ServerCore::init();
     }
+    ServerCore::init();
 
     // alice joins "team"; bob stays default
     ServerCore::on_channel_update(1000, &UpdateChannelC2SPacket::new(Some("team".into())));
@@ -832,11 +836,12 @@ fn server_core_disabled_mode_rejects_empty_channel() {
     seams::set_server_env(env.clone());
 
     {
-        let cfg = server_handler().config_mut();
+        let mut handler = server_handler();
+        let cfg = handler.config_mut();
         cfg.default_channel_mode = ChannelMode::Disabled;
         cfg.rate_limit = 0;
-        ServerCore::init();
     }
+    ServerCore::init();
 
     let packet = PingLocationC2SPacket::new(Some("".into()), Some(Vec3::new(0.0, 0.0, 0.0)), None, 0, 0);
     ServerCore::on_ping_location(1000, &packet);
@@ -854,11 +859,12 @@ fn server_core_team_only_rejects_teamless_players() {
     seams::set_server_env(env.clone());
 
     {
-        let cfg = server_handler().config_mut();
+        let mut handler = server_handler();
+        let cfg = handler.config_mut();
         cfg.default_channel_mode = ChannelMode::TeamOnly;
         cfg.rate_limit = 0;
-        ServerCore::init();
     }
+    ServerCore::init();
 
     let packet = PingLocationC2SPacket::new(Some("".into()), Some(Vec3::new(0.0, 0.0, 0.0)), None, 0, 0);
     ServerCore::on_ping_location(1000, &packet);
@@ -872,12 +878,13 @@ fn server_core_rate_limit_drops_excess_pings() {
     seams::set_server_env(env.clone());
 
     {
-        let cfg = server_handler().config_mut();
+        let mut handler = server_handler();
+        let cfg = handler.config_mut();
         cfg.default_channel_mode = ChannelMode::Global;
         cfg.rate_limit = 1;
         cfg.ms_to_regenerate = 5000;
-        ServerCore::init();
     }
+    ServerCore::init();
 
     let packet = PingLocationC2SPacket::new(Some("".into()), Some(Vec3::new(0.0, 0.0, 0.0)), None, 0, 0);
     ServerCore::on_ping_location(1000, &packet);
@@ -895,12 +902,13 @@ fn server_core_player_tracking_off_hides_player_targets() {
     seams::set_server_env(env.clone());
 
     {
-        let cfg = server_handler().config_mut();
+        let mut handler = server_handler();
+        let cfg = handler.config_mut();
         cfg.default_channel_mode = ChannelMode::Global;
         cfg.player_tracking_enabled = false;
         cfg.rate_limit = 0;
-        ServerCore::init();
     }
+    ServerCore::init();
 
     // ping targets bob (a player) -> entity stripped
     let packet = PingLocationC2SPacket::new(Some("".into()), Some(Vec3::new(0.0, 0.0, 0.0)), Some(1001), 0, 0);

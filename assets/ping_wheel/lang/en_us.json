@@ -1,0 +1,20 @@
+{
+  "settings.pingwheel.ping_volume": "Ping volume",
+  "settings.pingwheel.ping_duration": "Ping duration",
+  "settings.pingwheel.ping_distance": "Ping distance",
+  "settings.pingwheel.correction_period": "Correction period",
+  "settings.pingwheel.item_icon_visible": "Item icons",
+  "settings.pingwheel.direction_indicator_visible": "Direction indicator",
+  "settings.pingwheel.player_info_mode": "Player info",
+  "settings.pingwheel.team_color_mode": "Team color",
+  "settings.pingwheel.ping_size": "Ping size",
+  "value.pingwheel.hold": "Hold",
+  "value.pingwheel.disabled": "Disabled",
+  "value.pingwheel.always": "Always",
+  "value.pingwheel.compact": "Compact",
+  "value.pingwheel.full": "Full",
+  "value.pingwheel.ping_only": "Ping only",
+  "value.pingwheel.labels_only": "Labels only",
+  "key.pingwheel.ping_location": "Ping location",
+  "key.category.pingwheel.name": "Ping Wheel"
+}

@@ -452,11 +452,38 @@ impl IConfig for ClientConfig {
     }
 }
 
-/// HANDLER = ConfigHandler.of(ClientConfig.class, ".json") — path resolved by the context service seam.
-pub fn client_handler() -> &'static mut ConfigHandler<ClientConfig> {
-    static HANDLER: OnceLock<usize> = OnceLock::new();
-    let ptr = *HANDLER.get_or_init(|| Box::into_raw(Box::new(ConfigHandler::of(".json"))) as *mut ConfigHandler<ClientConfig> as usize);
-    unsafe { &mut *(ptr as *mut ConfigHandler<ClientConfig>) }
+/// HANDLER = ConfigHandler.of(ClientConfig.class, ".json") — path resolved by the
+/// context service seam. The Java field is a process-wide static; the port holds
+/// the singleton behind a Mutex and hands out a scoped guard instead of a raw
+/// `&'static mut`, so borrows cannot alias: an access while another one is held
+/// waits instead of overlapping. A poisoned lock (a panic while held) is
+/// recovered from, matching the Java static's always-available behavior.
+static CLIENT_HANDLER: OnceLock<std::sync::Mutex<ConfigHandler<ClientConfig>>> = OnceLock::new();
+
+/// Scoped access to the singleton client handler (ConfigHandler<ClientConfig>).
+pub struct ClientHandlerGuard(std::sync::MutexGuard<'static, ConfigHandler<ClientConfig>>);
+
+impl std::ops::Deref for ClientHandlerGuard {
+    type Target = ConfigHandler<ClientConfig>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for ClientHandlerGuard {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+pub fn client_handler() -> ClientHandlerGuard {
+    ClientHandlerGuard(
+        CLIENT_HANDLER
+            .get_or_init(|| std::sync::Mutex::new(ConfigHandler::of(".json")))
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner),
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -511,9 +538,33 @@ impl IConfig for ServerConfig {
     }
 }
 
-/// HANDLER = ConfigHandler.of(ServerConfig.class, ".server.json")
-pub fn server_handler() -> &'static mut ConfigHandler<ServerConfig> {
-    static HANDLER: OnceLock<usize> = OnceLock::new();
-    let ptr = *HANDLER.get_or_init(|| Box::into_raw(Box::new(ConfigHandler::of(".json"))) as *mut ConfigHandler<ServerConfig> as usize);
-    unsafe { &mut *(ptr as *mut ConfigHandler<ServerConfig>) }
+/// HANDLER = ConfigHandler.of(ServerConfig.class, ".server.json") — path resolved
+/// by the context service seam. Same scoped-guard singleton as the client
+/// handler; the client's and the server's files must stay distinct files.
+static SERVER_HANDLER: OnceLock<std::sync::Mutex<ConfigHandler<ServerConfig>>> = OnceLock::new();
+
+/// Scoped access to the singleton server handler (ConfigHandler<ServerConfig>).
+pub struct ServerHandlerGuard(std::sync::MutexGuard<'static, ConfigHandler<ServerConfig>>);
+
+impl std::ops::Deref for ServerHandlerGuard {
+    type Target = ConfigHandler<ServerConfig>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for ServerHandlerGuard {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+pub fn server_handler() -> ServerHandlerGuard {
+    ServerHandlerGuard(
+        SERVER_HANDLER
+            .get_or_init(|| std::sync::Mutex::new(ConfigHandler::of(".server.json")))
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner),
+    )
 }

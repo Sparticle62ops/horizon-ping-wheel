@@ -324,25 +324,34 @@ impl DirectionIndicatorRenderer {
             cfg.team_color_mode == TeamColorMode::Full || cfg.team_color_mode == TeamColorMode::PingOnly;
         let ping_color = if use_team_color { ping.get_team_color() } else { INDICATOR_WHITE };
 
-        let mut m = ctx.matrices_mut();
-        m.push_pose();
-        m.translate(edge_position.x, edge_position.y, 0.0);
+        // The icon draws borrow the same matrices RefCell as these pose edits;
+        // each edit runs in its own borrow scope so a draw while a RefMut is
+        // held cannot double-borrow (upstream has no RefCell; the scopes are
+        // the port's).
+        ctx.matrices_mut().push_pose();
+        ctx.matrices_mut().translate(edge_position.x, edge_position.y, 0.0);
 
-        m.push_pose();
-        m.scale(ping_scale, ping_scale, 1.0);
-        m.translate(indicator_offset_x as f32, indicator_offset_y as f32, 0.0);
+        {
+            let mut m = ctx.matrices_mut();
+            m.push_pose();
+            m.scale(ping_scale, ping_scale, 1.0);
+            m.translate(indicator_offset_x as f32, indicator_offset_y as f32, 0.0);
+        }
         ctx.render_ping(ping.item_stack(), cfg.item_icon_visible, ping_color);
-        m.pop_pose();
+        ctx.matrices_mut().pop_pose();
 
-        m.push_pose();
-        MathUtils::rotate_z(&mut m, ping_angle);
-        m.scale(ping_size, ping_size, 1.0);
-        m.scale(0.25, 0.25, 1.0);
-        m.translate(-5.0, 0.0, 0.0);
+        {
+            let mut m = ctx.matrices_mut();
+            m.push_pose();
+            MathUtils::rotate_z(&mut m, ping_angle);
+            m.scale(ping_size, ping_size, 1.0);
+            m.scale(0.25, 0.25, 1.0);
+            m.translate(-5.0, 0.0, 0.0);
+        }
         ctx.render_arrow_icon(ping_color);
-        m.pop_pose();
+        ctx.matrices_mut().pop_pose();
 
-        m.pop_pose();
+        ctx.matrices_mut().pop_pose();
     }
 }
 
@@ -528,7 +537,8 @@ mod tests {
         crate::seams::set_game(Some(Rc::new(G) as Rc<dyn crate::seams::MinecraftClient>));
 
         {
-            let cfg = crate::config::client_handler().config_mut();
+            let mut handler = crate::config::client_handler();
+            let cfg = handler.config_mut();
             cfg.safe_zone_left = 10;
             cfg.safe_zone_top = 20;
             cfg.safe_zone_right = 30;
@@ -546,7 +556,8 @@ mod tests {
         assert_eq!(SCREEN_SIZE.with(|s| *s.borrow()).unwrap(), Vec2 { x: 427.0, y: 240.0 });
 
         {
-            let cfg = crate::config::client_handler().config_mut();
+            let mut handler = crate::config::client_handler();
+            let cfg = handler.config_mut();
             cfg.safe_zone_left = crate::config::ClientConfig::default().safe_zone_left;
             cfg.safe_zone_top = crate::config::ClientConfig::default().safe_zone_top;
             cfg.safe_zone_right = crate::config::ClientConfig::default().safe_zone_right;

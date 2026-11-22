@@ -555,8 +555,17 @@ pub fn translate_component(_key: &str, _args: &[&str]) -> String {
 }
 
 /// KeyMapping#consumeClick host seam.
-pub fn consume_click_key(_binding: &crate::util::KeyBindingToken) -> bool {
-    false
+/// The original reads a live binding's pressed state through the host's
+/// key-mapping service. The mod API carries no live-binding read, so the
+/// ping binding the lib registers feeds its consume path through the input
+/// hook's tracked press; any other binding (the settings key, whose default
+/// is unbound upstream) reports nothing.
+pub fn consume_click_key(binding: &crate::util::KeyBindingToken) -> bool {
+    if binding.name == crate::util::InputUtils::key_binding_ping().name {
+        crate::take_ping_key_pressed()
+    } else {
+        false
+    }
 }
 
 /// PoseStack#mulPose(Vector3f.ZP.rotation(theta)) host seam.

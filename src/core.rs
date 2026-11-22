@@ -229,12 +229,18 @@ impl PingView {
     }
 
     pub fn is_expired(&self) -> bool {
-        (self.age as i32) > client_handler().config().ping_duration * TPS && client_handler().config().ping_duration < MAX_PING_DURATION
+        // One guard per statement: two temporary guards on the singleton in a
+        // single expression would deadlock (each access waits for the other).
+        let handler = client_handler();
+        let ping_duration = handler.config().ping_duration;
+        (self.age as i32) > ping_duration * TPS && ping_duration < MAX_PING_DURATION
     }
 
     pub fn is_removable(&self) -> bool {
-        (client_handler().config().correction_period >= MAX_CORRECTION_PERIOD || (self.age as i32) as f32 > client_handler().config().correction_period * TPS as f32)
-            && self.distance_to_center() < client_handler().config().remove_radius as f32
+        let handler = client_handler();
+        let cfg = handler.config();
+        (cfg.correction_period >= MAX_CORRECTION_PERIOD || (self.age as i32) as f32 > cfg.correction_period * TPS as f32)
+            && self.distance_to_center() < cfg.remove_radius as f32
     }
 
     pub fn distance_to_center(&self) -> f32 {
@@ -360,12 +366,15 @@ impl PingController {
         };
 
         let camera_direction = camera_entity.view_vector(tick_delta);
+        let handler = client_handler();
+        let raycast_distance = handler.config().raycast_distance.min(handler.config().ping_distance);
         let hit_result = Raycast::trace_directional(
             camera_direction,
             tick_delta,
-            (client_handler().config().raycast_distance.min(client_handler().config().ping_distance)) as f64,
+            raycast_distance as f64,
             camera_entity.is_crouching(),
         );
+        drop(handler);
 
         let hit_result = match hit_result {
             Some(h) if h.get_type() != HitResultType::Miss => h,
@@ -574,7 +583,8 @@ pub struct ServerCore;
 
 impl ServerCore {
     pub fn init() {
-        let cfg = crate::config::server_handler().config();
+        let handler = crate::config::server_handler();
+        let cfg = handler.config();
         crate::util::set_rates(cfg.ms_to_regenerate, cfg.rate_limit);
     }
 
@@ -720,10 +730,10 @@ impl ServerCore {
     }
 }
 
-// Static snapshot mirrors the Java `private static final ClientConfig CLIENT_CONFIG =
-// ClientConfig.HANDLER.getConfig()` field: resolved once on first use.
-pub fn client_config_snapshot() -> &'static ClientConfig {
-    static SNAPSHOT: OnceLock<usize> = OnceLock::new();
-    let ptr = *SNAPSHOT.get_or_init(|| client_handler().config() as *const ClientConfig as usize);
-    unsafe { &*(ptr as *const ClientConfig) }
+// Java holds a static final reference to the live config object; the settings
+// screen mutates that same object through config_mut(), so a `&'static`
+// snapshot would alias a mutable borrow of the handler's config. Each read
+// takes a consistent clone of the live values instead.
+pub fn client_config_snapshot() -> ClientConfig {
+    client_handler().config().clone()
 }

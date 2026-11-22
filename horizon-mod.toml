@@ -1,0 +1,58 @@
+id = "ping_wheel"
+name = "Ping Wheel"
+version = "1.0.0"
+description = """Ping pings for Horizon. Exact 1:1 Rust port of Ping Wheel
+(upstream https://github.com/LukenSkyne/Minecraft-Ping-Wheel, MIT, upstream
+LICENSE shipped in the package).
+
+## What ships today
+
+The full upstream client and server logic, compiled and tested on the
+pinned SDK: the config handler and validation, the ping data model and
+manager (dimension tracking, position correction, expiry, grouping),
+the ping controller (raycast path, directional sound, ping queueing),
+the server core (channel modes, rate limiting, player tracking, packet
+dispatch), the network packets and codecs, the math helpers, the compat
+migrations (legacy config rename, key mapping migration, deprecated
+resource-pack notice), the settings screen, the integration loaders
+( fabric-versioned deps detection), and the render logic for the overlay,
+the direction indicator and the ping location marker.
+
+## Horizon feature gaps, tracked on horizon-rust/horizon
+
+1. HUD overlay draw. The overlay (the ping marker on screen and the
+   direction indicator) draws through the game's GUI pose stack and sprite
+   draw; the mod API carries no HUD sprite/pose draw surface for a mod
+   crate, so the renderers run behind the seams and stay pending until
+   the surface lands. When it lands, they wire to it as-is.
+2. World raycast read. Placing a pings needs a crosshair raycast against
+   the open world; there is no client world-read surface a mod can call,
+   so a queued ping action stays pending until the surface lands.
+3. Client-to-server custom channel. The ping packets ride a registered
+   custom channel (ping-wheel:c2s / s2c); the mod API carries no channel
+   registration, so the network service stays a seam and pings do not
+   cross servers yet. When it lands, the packets wire to it as-is.
+4. Live key binding read. The ping key binding is registered on
+   Options > Controls with the original's default (mouse button 5); the
+   input hook feeds that default binding's presses through the consume
+   path. A read of the player's current (rebound) binding stays host-side.
+
+Pinned to Horizon f00125f61f794aaa3d4e950d301f353b35b6ee3d, horizon-mixins
+e59da9094f0c2fdda6c627fe9eff22dec6a906f0 and mod API 0.2; exact 1:1 Rust
+port tested against those revisions.
+
+Licence: MIT (upstream, carried, with the upstream notice and credit to
+LukenSkyne). Upstream: https://github.com/LukenSkyne/Minecraft-Ping-Wheel.
+Source: https://github.com/Sparticle62ops/horizon-ping-wheel
+"""
+authors = ["LukenSkyne", "sparticle"]
+license = "MIT"
+homepage = "https://github.com/Sparticle62ops/horizon-ping-wheel"
+api = "0.2"
+side = "client"
+capabilities = ["registries"]
+
+[native]
+game = "26.3"
+horizon = "f00125f61f794aaa3d4e950d301f353b35b6ee3d"
+mixins = "e59da9094f0c2fdda6c627fe9eff22dec6a906f0"

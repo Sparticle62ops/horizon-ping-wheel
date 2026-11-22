@@ -67,6 +67,18 @@ pub fn legacy_migrate_config(config_extension: &str) {
         return;
     }
 
+    // Java's File.renameTo fails without moving anything when the destination
+    // already exists (the platform-dependent contract; the branch keeps both
+    // files and logs the failure). Mirror that outcome instead of overwriting
+    // the live config file.
+    if std::path::Path::new(&new_config_path).exists() {
+        crate::global::log_error(&format!(
+            "Failed to rename legacy config: {} already exists",
+            new_config_path
+        ));
+        return;
+    }
+
     match std::fs::rename(&legacy_config_path, &new_config_path) {
         Ok(()) => crate::global::log_info(&format!("Renamed legacy config: {} -> {}", legacy_config_path, new_config_path)),
         Err(e) => crate::global::log_error(&format!("Failed to rename legacy config: {}", e)),
